@@ -57,8 +57,10 @@
         </div><span class="text-xl font-bold text-violet-300">Upload MP3</span> <span class="text-sm text-gray-500">or drag &amp; drop</span> <input type="file" id="fileInput" accept="audio/*" class="hidden">
        </div><!-- Song Info -->
        <div id="songInfo" class="hidden flex flex-col items-center gap-3">
-        <div class="flex items-center gap-2 text-emerald-400"><i data-lucide="music" class="w-5 h-5"></i> <span id="songName" class="text-lg font-bold"></span>
-        </div><button id="playBtn" class="px-8 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl text-xl font-bold btn-glow transition-all"> <span class="flex items-center gap-2"><i data-lucide="play" class="w-5 h-5"></i> Play</span> </button>
+        <div class="flex items-center gap-3">
+         <div class="flex items-center gap-2 text-emerald-400"><i data-lucide="music" class="w-5 h-5"></i> <span id="songName" class="text-lg font-bold"></span>
+         </div><button id="playBtn" class="px-6 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-bold btn-glow transition-all"> <i data-lucide="play" class="w-4 h-4"></i> </button>
+        </div>
        </div><!-- Theme Selection -->
        <div id="themeSelect" class="hidden">
         <p class="text-sm text-gray-400 mb-2 text-center">Visual Theme</p>
@@ -170,6 +172,8 @@
     }
     initDataSDK();
 
+    let selectedTrack = null;
+
     function renderHistory() {
       // Clear all genre sections
       document.querySelectorAll('.genre-section').forEach(section => {
@@ -197,14 +201,49 @@
         const container = section.querySelector('.genre-items');
         items.forEach(item => {
           const el = document.createElement('div');
-          el.className = 'history-item text-xs text-gray-300 py-1.5 px-2 rounded bg-white/5';
+          el.className = 'history-item text-xs text-gray-300 py-1.5 px-2 rounded bg-white/5 flex items-center justify-between gap-2 group cursor-pointer hover:bg-white/10';
           const date = new Date(item.timestamp);
           const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           el.style.borderColor = getGenreColor(genre);
-          el.innerHTML = `<div class="font-semibold truncate">${item.filename}</div><div class="text-gray-500 text-xs">${time}</div>`;
+          el.dataset.backendId = item.__backendId;
+          
+          const textDiv = document.createElement('div');
+          textDiv.className = 'flex-1 min-w-0';
+          textDiv.innerHTML = `<div class="font-semibold truncate">${item.filename}</div><div class="text-gray-500 text-xs">${time}</div>`;
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'flex-shrink-0 w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/30 text-red-400';
+          deleteBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteTrack(item);
+          });
+          
+          el.appendChild(textDiv);
+          el.appendChild(deleteBtn);
+          el.addEventListener('click', () => selectTrack(item));
+          
+          if (selectedTrack && selectedTrack.__backendId === item.__backendId) {
+            el.classList.add('ring-1', 'ring-violet-400', 'bg-violet-500/20');
+          }
+          
           container.appendChild(el);
         });
       });
+      lucide.createIcons();
+    }
+
+    function selectTrack(item) {
+      selectedTrack = item;
+      document.getElementById('songName').textContent = item.filename.replace(/\.[^.]+$/, '');
+      document.getElementById('songInfo').classList.remove('hidden');
+      document.getElementById('themeSelect').classList.remove('hidden');
+      renderHistory();
+    }
+
+    async function deleteTrack(item) {
+      const result = await window.dataSdk.delete(item);
+      if (!result.isOk) console.error('Failed to delete track');
     }
 
     function getGenreColor(genre) {
@@ -248,6 +287,15 @@
       // Save to history
       saveToHistory(file.name, genre);
       game.genre = genre;
+    }
+
+    function loadAudioFromTrack(trackFilename) {
+      const track = uploadHistory.find(t => t.filename === trackFilename);
+      if (!track) return;
+      
+      // Create a blob from the selected track filename for playback
+      selectedTrack = track;
+      game.genre = track.genre;
     }
 
     function playAudio() {
@@ -663,5 +711,5 @@
     initMenuBg();
     lucide.createIcons();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a03912c5dc370578',t:'MTc4MDA5NTE4Ng=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0391b24ace49324',t:'MTc4MDA5NTUyOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
