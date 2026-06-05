@@ -120,7 +120,7 @@
        </div>
        <div class="text-lg text-blue-200" id="listenTrack"></div>
       </div>
-      <div class="flex gap-3"><button id="listenResumeBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-bold btn-glow transition-all flex items-center gap-2"> <i data-lucide="play" class="w-5 h-5"></i> Resume </button> <button id="listenStopBtn" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-lg font-bold transition-all flex items-center gap-2"> <i data-lucide="square" class="w-5 h-5"></i> Stop </button>
+      <div class="flex gap-3"><button id="listenResumeBtn" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-bold btn-glow transition-all flex items-center gap-2"> <i data-lucide="play" class="w-5 h-5"></i> Resume </button> <button id="listenStopBtn" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-lg font-bold transition-all flex items-center gap-2"> <i data-lucide="square" class="w-5 h-5"></i> Stop </button> <button id="listenExitBtn" class="px-6 py-2 bg-red-700 hover:bg-red-600 rounded-xl text-lg font-bold transition-all flex items-center gap-2"> <i data-lucide="x" class="w-5 h-5"></i> Exit </button>
       </div>
      </div><!-- Game Canvas -->
      <canvas id="gameCanvas" class="absolute inset-0 z-20 hidden"></canvas><!-- Pause Overlay -->
@@ -270,12 +270,22 @@
       return colors[genre] || '#8b5cf6';
     }
 
-    async function saveToHistory(filename, genre) {
+    async function saveToHistory(filename, genre, arrayBuffer) {
       if (!window.dataSdk) return;
+      
+      // Convert ArrayBuffer to base64 string for storage
+      const bytes = new Uint8Array(arrayBuffer);
+      let binaryString = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binaryString += String.fromCharCode(bytes[i]);
+      }
+      const audioDataBase64 = btoa(binaryString);
+      
       const result = await window.dataSdk.create({
         filename,
         genre,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        audioData: audioDataBase64
       });
       if (!result.isOk) console.error('Failed to save upload');
     }
@@ -304,18 +314,40 @@
       document.getElementById('songInfo').classList.remove('hidden');
       document.getElementById('themeSelect').classList.remove('hidden');
       
-      // Save to history
-      saveToHistory(file.name, genre);
+      // Save to history with audio data
+      saveToHistory(file.name, genre, arrayBuffer);
       game.genre = genre;
     }
 
-    function loadAudioFromTrack(trackFilename) {
-      const track = uploadHistory.find(t => t.filename === trackFilename);
-      if (!track) return;
-      
-      // Create a blob from the selected track filename for playback
-      selectedTrack = track;
-      game.genre = track.genre;
+    async function selectTrack(item) {
+      selectedTrack = item;
+
+      if (item.audioData) {
+        try {
+          await initAudioContext();
+          // Convert base64 string back to ArrayBuffer
+          const binaryString = atob(item.audioData);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+        } catch (e) {
+          console.error('Failed to decode audio data:', e);
+          alert("Failed to load this song. Please upload it again.");
+          return;
+        }
+      } else {
+        alert("This older upload cannot be played because its audio file was not saved. Please upload the song again.");
+        return;
+      }
+
+      document.getElementById('songName').textContent = item.filename.replace(/\.[^.]+$/, '');
+      document.getElementById('songInfo').classList.remove('hidden');
+      document.getElementById('themeSelect').classList.remove('hidden');
+      game.genre = item.genre;
+
+      renderHistory();
     }
 
     function playAudio() {
@@ -827,6 +859,13 @@
       animateMenu();
     });
 
+    document.getElementById('listenExitBtn').addEventListener('click', () => {
+      stopAudio();
+      document.getElementById('listenMode').classList.add('hidden');
+      document.getElementById('menu').classList.remove('hidden');
+      animateMenu();
+    });
+
     // ===== INIT =====
     window.addEventListener('resize', () => { if (game.running) resizeCanvas(); });
     initMenuBg();
@@ -834,5 +873,5 @@
   </script>
    </div>
   </div>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a072a4efcafc1eda',t:'MTc4MDY5ODg2Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a072c3001c0fd845',t:'MTc4MDcwMDA5Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
